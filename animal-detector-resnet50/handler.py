@@ -1,16 +1,12 @@
-import torch
-from torchvision.models import resnet50, ResNet50_Weights
-from PIL import Image
-import json
-import requests
 import cgi
+import json
 from io import BytesIO
+from pathlib import Path
 
-# Carica i pesi e la trasformazione per ResNet50
-weights = ResNet50_Weights.IMAGENET1K_V1
-model = resnet50(weights=weights)
-model.eval()
-transform = weights.transforms()
+import requests
+import torch
+from PIL import Image
+from torchvision.models import resnet50, ResNet50_Weights
 
 # Carica le etichette ImageNet
 LABELS_URL = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
@@ -18,6 +14,20 @@ LABELS = requests.get(LABELS_URL).text.strip().split("\n")
 
 def handle(event, context):
     try:
+        # Rimuove i pesi ResNet50 dalla cache per forzare il download
+        cache_dir = Path.home() / ".cache" / "torch" / "hub" / "checkpoints"
+        for file_path in cache_dir.glob("resnet50-*.pth"):
+            try:
+                file_path.unlink()
+            except Exception:
+                pass  # Ignora eventuali errori di rimozione
+
+        # Carica i pesi e la trasformazione per ResNet50
+        weights = ResNet50_Weights.IMAGENET1K_V1
+        model = resnet50(weights=weights)
+        model.eval()
+        transform = weights.transforms()
+
         body = event.body
         if isinstance(body, str):
             body = body.encode('utf-8')
@@ -71,4 +81,3 @@ def handle(event, context):
             "statusCode": 500,
             "body": f"Errore durante l'elaborazione: {str(e)}"
         }
-
